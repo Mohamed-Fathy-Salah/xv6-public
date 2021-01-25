@@ -31,11 +31,11 @@ Read-only code:
 - xv6 should trap and kill the process if the code tries to access a protected page.
 - the page protection should be inherited on `fork()` . Thus, if a process has mprotected some of its pages, when the process calls fork, the OS should copy those protections to the child process.
 - if any of these happened : `return -1` and do not change anything. otherwise, `return 0` upon success.
-> `addr` is not page aligned
+    > `addr` is not page aligned
 
-> `addr` points to a region that is not currently a part of the address space
+    > `addr` points to a region that is not currently a part of the address space
 
-> `len` is less than or equal to zero.
+    > `len` is less than or equal to zero.
 
 
 ### Implementation
@@ -47,17 +47,17 @@ Read-only code:
     - `len` is the number of pages to be modified.
 - the system calles are done by modifing the following files:
     - `syscall.h` in this file you add the system call name in the following pattern `SYS_name` and give it the mex of the numbers in the file. this will be used as an index in the array of functions in `syscall.c` and will be used by the trap frame to know which function to be executed when a system call occures.
-        ```
+        ```c
         #define SYS_mprotect 25
         #define SYS_munprotect 26
         ```
 
     - `syscall.c` in this file you make the systemcall prototype and make it extern to be used outside this file in the following pattern `sys_name(void);`  and add them to the array `syscalls`
-        ```
+        ```c
         extern int sys_mprotect(void);
         extern int sys_munprotect(void);
         ```
-        ```
+        ```c
         [SYS_mprotect] sys_mprotect,
         [SYS_munprotect] sys_munprotect,
         ```
@@ -74,7 +74,7 @@ Read-only code:
         ```
     - `sysproc.c` in this file you implement `sys_mprotect` and `sys_munprotect` . it's purpose is to get the arguments from the stack and check if they are valid before passing them to the `mprotect` and `munprotect`
 
-        ```
+        ```c
         int sys_mprotect(void){
             void *addr;
             int len;
@@ -90,7 +90,7 @@ Read-only code:
             return mprotect(addr,len);
         }
         ```
-        ```
+        ```c
         int sys_munprotect(void){
             void * addr;
             int len;
@@ -106,7 +106,37 @@ Read-only code:
             return munprotect(addr,len);
         }
         ```
-
+    - `vm.c` implement the systemcalls `mprotect` , `munprotect` . 
+        - we iterate over all the pages that need to be protected and get their page table entry with the help of the function `walkpgdir` and change the flag bit of `writable` if the current page is present and available for user mode and if not the function will return -1; uppon unsuccessfull changes.
+        - we reset the regester cr3 at the end just to notify the hardware with the changes happened to the page table entries. [see Figure 2-1 for more clarification on `walkpgdir` & protection bits](https://pekopeko11.sakura.ne.jp/unix_v6/xv6-book/en/Page_tables.html#paging-hardware).
+        - cr3 stores current physical address of the page directory thats why we used `V2P()` to change from virtual address to physical one . [see Figure 2-2 for more clarification on `V2P()` & `P2V()`](https://pekopeko11.sakura.ne.jp/unix_v6/xv6-book/en/Page_tables.html#process-address-space).
+            >  PhysicalAddress = VirtualAddress - KERNELBASE;
+    ```c
+    int mprotect(void* addr,uint len){
+        struct proc *curproc = myproc();  
+        pte_t *pte;
+        for(int i=(int)addr;i<((int)addr+len*PGSIZE);i+=PGSIZE){
+            pte = walkpgdir(curproc->pgdir,(void*)i,0);
+            if((*pte & PTE_U) && (*pte&PTE_P))*pte &= ~PTE_W;
+            else return -1;
+        }
+        lcr3(V2P((uint)curproc->pgdir));
+        return 0;
+    }
+    ```
+    ```c
+    int munprotect(void* addr,uint len){
+        struct proc *curproc = myproc();  
+        pte_t *pte;
+        for(int i=(int)addr;i<((int)addr+len*PGSIZE);i+=PGSIZE){
+            pte = walkpgdir(curproc->pgdir,(void*)i,0);
+            if((*pte & PTE_U) && (*pte&PTE_P))*pte |= PTE_W;
+            else return -1;
+        }
+        lcr3(V2P((uint)curproc->pgdir));
+        return 0;
+    }
+    ```
 
 ### Test
 
