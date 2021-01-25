@@ -157,9 +157,9 @@ this line will make the child inherit the parent tickets.
 ## Virtual memory
 ### Required
 Null pointer dereference:
-In this part of the project we will be changing the xv6 to support a feature almost every modern os does, which is causing an exception when a program dereferences a null pointer
+In this part of the project we will be changing the xv6 to support a feature almost every modern os does, which is causing an exception when a program dereferences a null pointer <br>
 what is null pointer:<br>
-A Null Pointer is a pointer that does not point to any memory location. It stores the base address of the segment. The null pointer basically stores the Null value
+A Null Pointer is a pointer that does not point to any memory location. It stores the base address of the segment. The null pointer basically stores the Null value <br>
 what is null pointer dereference:<br>
 null pointer Dereferencing  means trying to access whatever is pointed to by the pointer. The * operator is the dereferencing operator
 in other words Dereferencing just means reading the memory value at a given address. So when you have a pointer points to something, to dereference the pointer means to read or write the data that the pointer points to.
@@ -171,6 +171,7 @@ In xv6 trying to dereference a null pointer will not cause an exception ,however
 this could be fixed by updating CFLAGS in Makefile <br>
 Now we can see clearly trying to dereference a null pointer in xv6 will not cause an exception
 ![example-xv6](https://i.ibb.co/PrbSLR0/Screenshot-from-2021-01-25-16-29-30.png "xv6-try12") <br>
+Now we will try to make the xv6 support this feature and make an exception when trying to dereferencing a null pointer
 
 
 Read-only code:
