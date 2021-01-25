@@ -153,20 +153,15 @@ this line will make the child inherit the parent tickets.
 ### Test
 
 ---
-## Null pointer Dereference 
-### Required
-
-
-
 
 ## Virtual memory
 ### Required
 Null pointer dereference:
-In this part of the project we will be changing the xv6 to support a feature almost every modern os does, which is causing an exception when a program derefrences a null pointer
-what is null pointer:
+In this part of the project we will be changing the xv6 to support a feature almost every modern os does, which is causing an exception when a program dereferences a null pointer
+what is null pointer:<br>
 A Null Pointer is a pointer that does not point to any memory location. It stores the base address of the segment. The null pointer basically stores the Null value
-what is null pointer dereference:
-- null pointer Dereferencing  means trying to access whatever is pointed to by the pointer. The * operator is the dereferencing operator
+what is null pointer dereference:<br>
+null pointer Dereferencing  means trying to access whatever is pointed to by the pointer. The * operator is the dereferencing operator
 in other words Dereferencing just means reading the memory value at a given address. So when you have a pointer points to something, to dereference the pointer means to read or write the data that the pointer points to.
 
 In Linux trying to dereference a null pointer will cause an exception
