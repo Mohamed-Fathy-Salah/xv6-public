@@ -167,7 +167,7 @@ what is null pointer dereference:
 in other words Dereferencing just means reading the memory value at a given address. So when you have a pointer points to something, to dereference the pointer means to read or write the data that the pointer points to.
 
 In Linux trying to dereference a null pointer will cause an exception
-![example](https://imgur.com/pHbGpnD "linux")
+![example](https://i.ibb.co/ZJYSkKZ/linux-Nullpointer-Dereference.png "linux")
 
 - change the protection of parts of the page table to be read-only or read/write
 - xv6 should trap and kill the process if the code tries to access a protected page.
