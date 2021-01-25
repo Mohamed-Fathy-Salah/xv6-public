@@ -170,7 +170,11 @@ In Linux trying to dereference a null pointer will cause an exception
 ![example-Linux](https://i.ibb.co/ZJYSkKZ/linux-Nullpointer-Dereference.png "linux") <br>
 In xv6 trying to dereference a null pointer will not cause an exception ,however, it gave us a Trap 6 error <br>
 ![example-xv6](https://i.ibb.co/chfR346/Screenshot-from-2021-01-25-16-21-02.png "xv6-try1") <br>
-this could be fixed by updating CFLAGS in Makefile
+this could be fixed by updating CFLAGS in Makefile <br>
+Now we can see clearly trying to dereference a null pointer in xv6 will not cause an exception
+![example-xv6](https://i.ibb.co/PrbSLR0/Screenshot-from-2021-01-25-16-29-30.png "xv6-try12") <br>
+
+
 
 
 - change the protection of parts of the page table to be read-only or read/write
