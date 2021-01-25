@@ -187,6 +187,11 @@ Read-only code:
 
 
 ### Implementation
+Null pointer dereference:<br>
+the basic idea to make the xv6 supports null pointer exception is to make the user program loads into memory from the second page which in address 4096 or 0x1000H not from the first page with adress 0x1000  i.e we have to make page 0 is inaccessible
+1. x
+2. y
+
 
 Read-only code:
 - by changing the `WRITEABLE` protection bit in the page table entry we control its write protection
