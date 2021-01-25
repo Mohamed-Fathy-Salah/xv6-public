@@ -189,8 +189,28 @@ Read-only code:
 ### Implementation
 Null pointer dereference:<br>
 the basic idea to make the xv6 supports null pointer exception is to make the user program loads into memory from the second page which in address 4096 or 0x1000H not from the first page with adress 0x1000  i.e we have to make page 0 is inaccessible
-1. x
-2. y
+1. change `sz = 0` to `sz = PGSIZE` `exec.c`
+ ```c
+ sz= PGSIZE
+ ```
+2. Change `i=0` to `i=4096` in func `copyuvm` in `vm.c`
+ ```c
+ for (i = 4096; i < sz; i += PGSIZE)
+ ```
+3. adding one more condition which is `i==0` in func `argptr` in syscall .c 
+  ```c
+  if (size < 0 || (uint)i >= curproc->sz || (uint)i + size > curproc->sz || i == 0)
+ ```
+4. update MAKEFILE where the user program is compiled and set the start point is the second page `0x1000` not the first page `0x0000`
+in line 149
+```c
+	$(LD) $(LDFLAGS) -N -e main -Ttext 0x1000 -o $@ $^
+```
+in line 156 
+```c
+	$(LD) $(LDFLAGS) -N -e main -Ttext 0x1000 -o _forktest forktest.o ulib.o usys.o
+```
+5. Last one is to change `p=0` into `p=4096` in func `validatetest` in `usertests.c`
 
 
 Read-only code:
