@@ -585,86 +585,88 @@ join(void** stack)
   }
 }
 ```
-### to make the system calls and ThreadLibrary we modified this files 
-
- ###### `syscall.h` 
-      ```c
-       #define SYS_clone 27
-        #define SYS_join 28
-       ```'
- ###### `syscall.c`
-        ```c
-        extern int sys_clone(void);
-        extern int sys_join(void);
-        ```
-        ```c
-        [SYS_clone] sys_clone,
-        [SYS_join] sys_join,
-        ```
-
-###### `usys.S`
-        ```c
-        SYSCALL(clone)
-        SYSCALL(join)
-        ```
-      
- ###### `defs.h`
-
-       ```c
-       //system calls
-       int		clone(void(*fcn)(void*,void*) ,void* ,void* ,void*);
-       int             join(void**);
-       
-       ```       
- ###### `user.h`
-
-       ```c
-      struct lock_t;
-      
-      int clone(void(*start_routine)(void*,void*),void*,void*,void*);
-      int join(void**);
-      
-      //thread Library
-      
-      int thread_create(void(*start_routine)(void*,void*), void* arg1, void* arg2);
-      int thread_join();
-      void lock_init(struct lock_t *);
-      void lock_acquire(struct lock_t *);
-      void lock_release(struct lock_t *);
-      
-       ```	
-
-###### `ulib.c`-> in this file we implement the thread library .</br>
-      
-      ```c
-      struct lock_t
-	{
-	uint locked;
-	};
-	thread_create(void(*start_routine)(void*,void*),void* arg1 ,void* arg2)
-	{
-	void* stack;
-	stack =malloc(4096);  //pgsize
-	return clone(start_routine,arg1,arg2,stack);
-	}
-	int thread_join()
-	{
-  	void * stackPtr;
-  	int x = join(&stackPtr);
+3- `thread library`
+* we use a thread library to let the parent process automatically allocates stack address for its child process instead of requiring the address from the user
+* use spinning ticket locks to protect data from being accessed by multiple threads simultaneously
+##### modified files
+###### `ulib.c`
+* `thread_create`: is the function we actually use in the user program, we use it to automatically allocates stack address `stack`for child process using `malloc()`, then pass its value to `clone()`system call and finally retuns `clone()`.
+* `thread_join` : used to pass the address of the stack to `join()` system call , as we can't use the join() directly in the userprogram because the user knows nothing about any stack addresses.
+* `Ticket locks` : For spinlocks, we defined a simple lock data structure and implemented three functions ..
+   * `lock_init()`initialize the lock to the correct initial state 
+   * `lock_acquire`a funtion to acquire a lock 
+   * `lock_release`a function to release the lock 
+```c
+struct lock_t
+{
+uint locked;
+};
+thread_create(void(*start_routine)(void*,void*),void* arg1 ,void* arg2)
+{
+void* stack;
+stack =malloc(4096);  //pgsize
+return clone(start_routine,arg1,arg2,stack);
+}
+int thread_join()
+{
+void * stackPtr;
+int x = join(&stackPtr);
   
- 	 return x;
-	}
+return x;
+}
 
-	void lock_init(struct lock_t *lk){
-	lk->locked=0; //intialize as unnlocked
-	}
-	void lock_acquire(struct lock_t *lk){
-	while(xchg(&lk->locked,1) != 0);
-	}
-	void lock_release(struct lock_t *lk){
-  	xchg(&lk->locked,0) ;
-	}
-       ```
+void lock_init(struct lock_t *lk){
+lk->locked=0; //intialize as unnlocked
+}
+void lock_acquire(struct lock_t *lk){
+while(xchg(&lk->locked,1) != 0);
+}
+void lock_release(struct lock_t *lk){
+xchg(&lk->locked,0) ;
+}
+```
+### System calls and thread library glue 
+###### `syscall.h` 
+```c
+#define SYS_clone 27
+#define SYS_join 28
+```
+###### `syscall.c`
+```c
+extern int sys_clone(void);
+extern int sys_join(void);
+```
+```c
+[SYS_clone] sys_clone,
+[SYS_join] sys_join,
+```
+###### `usys.S`
+```c
+SYSCALL(clone)
+SYSCALL(join)
+```    
+###### `defs.h`
+```c
+//system calls
+int  clone(void(*fcn)(void*,void*) ,void* ,void* ,void*);
+int  join(void**); 
+```       
+###### `user.h`
+```c
+struct lock_t;
+      
+int clone(void(*start_routine)(void*,void*),void*,void*,void*);
+int join(void**);
+    
+//thread Library
+      
+int thread_create(void(*start_routine)(void*,void*), void* arg1, void* arg2);
+int thread_join();
+void lock_init(struct lock_t *);
+void lock_acquire(struct lock_t *);
+void lock_release(struct lock_t *);
+```
+
        
 
 ### Test
