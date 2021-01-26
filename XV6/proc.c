@@ -430,7 +430,6 @@ scheduler(void)
   }
 }
 
-
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
@@ -652,8 +651,8 @@ getpinfo(struct pstat* ps){
 }
 
 //threads
-int clone (void(*fcn)(void*,void*),void *arg1 ,void *arg2 ,void* stack)
-{
+int clone (void(*fcn)(void*,void*),void *arg1 ,void *arg2 ,void* stack){
+
   struct proc *newp;  //newprocess
   struct proc *currp = myproc(); //parent process 
 
@@ -705,13 +704,11 @@ int clone (void(*fcn)(void*,void*),void *arg1 ,void *arg2 ,void* stack)
   release(&ptable.lock);  //release spinlock from being held by cpu
 
   return newp->pid;
-
 }
 
 int
-join(void** stack)
-{
-
+join(void** stack){
+  
   struct proc *p;           // The thread iterator
   struct proc *cp = myproc();  
   int havekids, pid;
@@ -735,6 +732,7 @@ join(void** stack)
         // Removing thread from the kernal stack
         kfree(p->kstack);
         p->kstack = 0;
+
         // Reseting thread from the process table
         p->pid = 0;
         p->parent = 0;
@@ -755,7 +753,6 @@ join(void** stack)
       release(&ptable.lock);
       return -1;
     }
-
     // Wait for children to exit.  (See wakeup1 call in proc_exit.)
     sleep(cp, &ptable.lock);  //DOC: wait-sleep
   }

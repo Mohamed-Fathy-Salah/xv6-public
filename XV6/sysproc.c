@@ -8,6 +8,7 @@
 #include "proc.h"
 #include "pstat.h"
 
+
 int
 sys_fork(void)
 {
@@ -120,7 +121,6 @@ sys_getpinfo(void)
   getpinfo(p);
   return 0;
 }
-
 
 //set addr to read
 int sys_mprotect(void){
