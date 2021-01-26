@@ -70,7 +70,7 @@ this file contains array of function pointer which use the number we assigned in
 ```c
 [SYS_settickets]   sys_settickets
 ```
-This means, when system call occurred with system call number XX, function pointed by function pointer sys_getreadcount will be called.</br>
+This means, when system call occurred with system call number XX, function pointed by function pointer sys_settickets will be called.</br>
 Also in this file is add the function prototype so as to be able to define it in different place. So add this line </br>
 ```c
 extern int sys_settickets(void)
@@ -199,7 +199,8 @@ Now we will try to make the xv6 support this feature and make an exception when 
 
 
 ### Implementation
-Null pointer dereference:<br>
+<h1 align="center">Null pointer dereference</h1>
+
 the basic idea to make the xv6 supports null pointer exception is to make the user program loads into memory from the second page which in address 4096 or 0x1000H not from the first page with adress 0x0000  i.e we have to make page 0 is inaccessible
 1. change `sz = 0` to `sz = PGSIZE` `exec.c`
  ```c
@@ -239,7 +240,8 @@ In xv6 makefile user programs are compiled , by default the entry point [first i
  To make the usertest pass
 
 
-Read-only code:
+<h1 align="center">Read-only code</h1>
+
 - by changing the `WRITEABLE` protection bit in the page table entry we control its write protection
 - to do this we created 2 system calls `int mprotect(void *addr,int len)` and `int munprotect(void *addr,int len)`.
     - `mprotect` change the protection of the page to read only
@@ -376,7 +378,12 @@ Adding Kernel level support for user threads ,that means multiple tasks sharing 
 * creates a child process -behaves like a thread- that shares the address space and working directory of the parent -calling- process</br>
 * if The child process calls clone() another thread in the same parent process will be created.</br>
 * the child process's stack is in the address space of the parent process</br>
-2 - `join` ->to wait for the thread to finish.</br></br>
+2 - `join`..
+* waits for the thread to finish</br>
+* gives the parent process ability to read the exit status of a child.so, the child won't become a zombie once it exits</br>
+* checks the list of currently running processes, looking for a thread belonging to the parent process
+* when child process is found `join` will "kill" it by setting it to the UNUSED state,clears its entry in the process table and resetting all of its values.</br>
+* It will then return the pid of the child thread that was killed.</br></br>
 -thread library implemented in "ulib.c" :-</br>
 1 - `thread_create` ->allocate user stack by using sbrk or malloc ,then call the clone system call.</br>
 2 - `thread_join` ->uses the join system call.</br>
@@ -505,6 +512,162 @@ return newp->pid;
 
 }
 ```
+#### 2- `join()`
+##### Modified files
+###### `sysproc.c` 
+```c
+       int sys_join(){
+
+    	   void **stack;
+       	   int stackArg;
+    	   stackArg = argint(0, &stackArg);
+    	   stack = (void**) stackArg;
+
+       return join(stack);
+       }
+ ```
+###### `proc.c`
+1- checks the list of currently running processes, looking for a thread belonging to the parent process
+ * To tell if a process is a child thread of the current process, it must have its parent equal to the current process and have the same `pgdir`</br>
+
+```c
+int
+join(void** stack)
+{
+  struct proc *p;           // The thread iterator
+  int havekids, pid;
+  struct proc *cp = myproc();
+  acquire(&ptable.lock);
+  for(;;){
+      // Scan through table looking for zombie children.
+      havekids = 0;
+      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+
+      //if the parent of p not equal the current process or share the same address space ,then it's not a thread and continue looping
+    
+      if(p->parent != cp || p->pgdir != p->parent->pgdir)
+        continue;
+       
+      havekids = 1;
+```
+2-  kills the child process but doesn't free its virtual memory`pgdir`,as the child shares the address space of its parent, just free the kernel stack`kstack`of child process`p` </br>
+```c
+      if(p->state == ZOMBIE){
+        // Found one.
+	      pid = p->pid;
+        // Removing thread from the kernal stack
+        kfree(p->kstack);
+        p->kstack = 0;
+
+        // Reseting thread from the process table
+        p->pid = 0;
+        p->parent = 0;
+        p->name[0] = 0;
+        p->killed = 0;
+        p->state = UNUSED;
+        stack = p->threadstack;
+        p->threadstack = 0;
+
+        release(&ptable.lock);
+	      return pid;
+      }
+      
+    }
+
+    // No point waiting if we don't have any children.
+    if(!havekids || cp->killed){
+      release(&ptable.lock);
+      return -1;
+    }
+
+    // Wait for children to exit.  (See wakeup1 call in proc_exit.)
+    sleep(cp, &ptable.lock);  //DOC: wait-sleep
+  }
+}
+```
+3- `thread library`
+* we use a thread library to let the parent process automatically allocates stack address for its child process instead of requiring the address from the user
+* use spinning ticket locks to protect data from being accessed by multiple threads simultaneously
+##### modified files
+###### `ulib.c`
+* `thread_create`: is the function we actually use in the user program, we use it to automatically allocates stack address `stack`for child process using `malloc()`, then pass its value to `clone()`system call and finally retuns `clone()`.
+* `thread_join` : used to pass the address of the stack to `join()` system call , as we can't use the join() directly in the userprogram because the user knows nothing about any stack addresses.
+* `Ticket locks` : For spinlocks, we defined a simple lock data structure and implemented three functions ..
+   * `lock_init()`initialize the lock to the correct initial state 
+   * `lock_acquire`a funtion to acquire a lock 
+   * `lock_release`a function to release the lock 
+```c
+struct lock_t
+{
+uint locked;
+};
+thread_create(void(*start_routine)(void*,void*),void* arg1 ,void* arg2)
+{
+void* stack;
+stack =malloc(4096);  //pgsize
+return clone(start_routine,arg1,arg2,stack);
+}
+int thread_join()
+{
+void * stackPtr;
+int x = join(&stackPtr);
+  
+return x;
+}
+
+void lock_init(struct lock_t *lk){
+lk->locked=0; //intialize as unnlocked
+}
+void lock_acquire(struct lock_t *lk){
+while(xchg(&lk->locked,1) != 0);
+}
+void lock_release(struct lock_t *lk){
+xchg(&lk->locked,0) ;
+}
+```
+### System calls and thread library glue 
+###### `syscall.h` 
+```c
+#define SYS_clone 27
+#define SYS_join 28
+```
+###### `syscall.c`
+```c
+extern int sys_clone(void);
+extern int sys_join(void);
+```
+```c
+[SYS_clone] sys_clone,
+[SYS_join] sys_join,
+```
+###### `usys.S`
+```c
+SYSCALL(clone)
+SYSCALL(join)
+```    
+###### `defs.h`
+```c
+//system calls
+int  clone(void(*fcn)(void*,void*) ,void* ,void* ,void*);
+int  join(void**); 
+```       
+###### `user.h`
+```c
+struct lock_t;
+      
+int clone(void(*start_routine)(void*,void*),void*,void*,void*);
+int join(void**);
+    
+//thread Library
+      
+int thread_create(void(*start_routine)(void*,void*), void* arg1, void* arg2);
+int thread_join();
+void lock_init(struct lock_t *);
+void lock_acquire(struct lock_t *);
+void lock_release(struct lock_t *);
+```
+
+       
 
 ### Test
 
