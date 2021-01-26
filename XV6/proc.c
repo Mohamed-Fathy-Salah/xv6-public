@@ -431,33 +431,6 @@ scheduler(void)
 }
 
 
-int 
-settickets(int tickets){
-  if(tickets < 1)
-    return -1;
-  struct proc *proc = myproc();
-  proc->tickets = tickets;
-  acquire(&ptable.lock);
-  ptable.proc[proc-ptable.proc].tickets = tickets;
-  release(&ptable.lock);
-  return 0;
-}
-
-int
-getpinfo(struct pstat* ps) {
-  struct proc *p;
-  int i;
-  acquire(&ptable.lock);
-  for (p = ptable.proc, i = 0; p < &ptable.proc[NPROC]; p++, i++) {
-    ps->pid[i] = p->pid;
-    ps->inuse[i] = p->state != UNUSED;
-    ps->tickets[i] = p->tickets;
-    ps->ticks[i] = p->ticks;
-  }
-  release(&ptable.lock);
-  return 0;
-}
-
 // Enter scheduler.  Must hold only ptable.lock
 // and have changed proc->state. Saves and restores
 // intena because intena is a property of this
@@ -642,74 +615,115 @@ count(){
     return SYS_count;
 }
 
+//----------------------------------------------OUR WORK----------------------------------------
+
+
+int 
+settickets(int tickets){
+
+  if(tickets < 1)
+    return -1;
+
+  struct proc *proc = myproc();
+
+  acquire(&ptable.lock);
+    proc->tickets = tickets;
+  release(&ptable.lock);
+
+  return 0;
+}
+
+int
+getpinfo(struct pstat* ps){ 
+
+  struct proc *p;
+  int i;
+
+  acquire(&ptable.lock);
+    for (p = ptable.proc, i = 0; p < &ptable.proc[NPROC]; p++, i++){
+      ps->pid[i]     = p->pid;
+      ps->inuse[i]   = p->state != UNUSED;
+      ps->tickets[i] = p->tickets;
+      ps->ticks[i]   = p->ticks;
+    }
+  release(&ptable.lock);
+
+  return 0;
+}
+
 //threads
 int clone (void(*fcn)(void*,void*),void *arg1 ,void *arg2 ,void* stack)
 {
-struct proc *newp;  //newprocess
-struct proc *currp = myproc(); //parent process 
+  struct proc *newp;  //newprocess
+  struct proc *currp = myproc(); //parent process 
 
-//if allocating new process failed allocproc() return 0 : else return proc
-//if failled clone() will return -1 
-if((newp = allocproc())==0) return -1;  
+  //if allocating new process failed allocproc() return 0 : else return proc
+  //if failled clone() will return -1 
+  if((newp = allocproc())==0) return -1;  
 
-//setting new process data
-newp->pgdir = currp->pgdir;  //have same process page table
-newp->sz = currp->sz;        //have the same size        
-*newp->tf = *currp->tf;	      //have the same trapframe
-newp->parent = currp; 
-newp->tf->eax = 0 ;          //clearing eax to return 0 in the child
+  //setting new process data
+  newp->pgdir = currp->pgdir;  //have same process page table
+  newp->sz = currp->sz;        //have the same size        
+  *newp->tf = *currp->tf;	      //have the same trapframe
+  newp->parent = currp; 
+  newp->tf->eax = 0 ;          //clearing eax to return 0 in the child
 
-//setting the new stack 
-uint stack_top = (uint) stack + PGSIZE;
-uint user_stack[3];  //decalring arrray of 3 elements
+  //setting the new stack 
+  uint stack_top = (uint) stack + PGSIZE;
+  uint user_stack[3];  //decalring arrray of 3 elements
 
-user_stack[0]= 0xffffffff ;  //fake return address for thread's stack(first address in stack which base ponter points to)
-user_stack[1]= (uint) arg1 ; //first arg
-user_stack[2]= (uint) arg2 ; //second arg (will be the top of stack)
+  user_stack[0]= 0xffffffff ;  //fake return address for thread's stack(first address in stack which base ponter points to)
+  user_stack[1]= (uint) arg1 ; //first arg
+  user_stack[2]= (uint) arg2 ; //second arg (will be the top of stack)
 
-stack_top-=12; //cause we will push 3 elements in the stack
+  stack_top-=12; //cause we will push 3 elements in the stack
 
-// copying 12 bytes from the arry user_stack into memory location stack_top(offset) in the newp->pgdir 
-if(copyout(newp->pgdir , stack_top , user_stack ,12) < 0) return -1;
+  // copying 12 bytes from the arry user_stack into memory location stack_top(offset) in the newp->pgdir 
+  if(copyout(newp->pgdir , stack_top , user_stack ,12) < 0) return -1;
 
-//setting base and stack pointers for the return from trap
-//they will be the same because we are returning into function
-//setting instruction pointer to the address of the function that the thread will do
-newp->tf->ebp = (uint) stack_top;
-newp->tf->esp = (uint) stack_top;
-newp->tf->eip = (uint) fcn;
-newp->threadstack=stack;
-//duplicating files
-//filedup ->used to increment the reference count of the open files of the process 
-for(int i=0 ; i<NOFILE ; i++) //looping over 14 openfile of process
-	if(currp->ofile[i])  newp->ofile[i] = filedup(currp->ofile[i]); 
+  //setting base and stack pointers for the return from trap
+  //they will be the same because we are returning into function
+  //setting instruction pointer to the address of the function that the thread will do
+  newp->tf->ebp = (uint) stack_top;
+  newp->tf->esp = (uint) stack_top;
+  newp->tf->eip = (uint) fcn;
+  newp->threadstack=stack;
 
-//increment reference count of cwd (crnt directry) and save it in newp->cwd
-newp->cwd =idup(currp->cwd); 
+  //duplicating files
+  //filedup ->used to increment the reference count of the open files of the process 
+  for(int i=0 ; i<NOFILE ; i++) //looping over 14 openfile of process
+  	if(currp->ofile[i])  newp->ofile[i] = filedup(currp->ofile[i]); 
 
-//setting the name of new process as same the name of currnet process
-safestrcpy(newp->name ,currp->name ,sizeof(currp->name));
+  //increment reference count of cwd (crnt directry) and save it in newp->cwd
+  newp->cwd =idup(currp->cwd); 
 
-acquire(&ptable.lock);  //make the lock =1
-newp->state = RUNNABLE;
-release(&ptable.lock);  //release spinlock from being held by cpu
-return newp->pid;
+  //setting the name of new process as same the name of currnet process
+  safestrcpy(newp->name ,currp->name ,sizeof(currp->name));
+
+  acquire(&ptable.lock);  //make the lock =1
+  newp->state = RUNNABLE;
+  release(&ptable.lock);  //release spinlock from being held by cpu
+
+  return newp->pid;
 
 }
 
 int
 join(void** stack)
 {
+
   struct proc *p;           // The thread iterator
+  struct proc *cp = myproc();  
   int havekids, pid;
-  struct proc *cp = myproc();
+
   acquire(&ptable.lock);
   for(;;){
       // Scan through table looking for zombie children.
-      havekids = 0;
-      for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    havekids = 0;
+    for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
 
-      //if the parent of p not equal the current process or share the same address space ,then it's not a thread and continue looping
+      //if the parent of p not equal the current process or share the same address space 
+      //then it's not a thread and continue looping
     
       if(p->parent != cp || p->pgdir != p->parent->pgdir)
         continue;
@@ -721,7 +735,6 @@ join(void** stack)
         // Removing thread from the kernal stack
         kfree(p->kstack);
         p->kstack = 0;
-
         // Reseting thread from the process table
         p->pid = 0;
         p->parent = 0;
