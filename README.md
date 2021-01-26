@@ -321,7 +321,6 @@ In xv6 makefile user programs are compiled , by default the entry point [first i
             for(int i=(int)addr;i<((int)addr+len*PGSIZE);i+=PGSIZE){
                 pte = walkpgdir(curproc->pgdir,(void*)i,0);
                 if((*pte & PTE_U) && (*pte&PTE_P))*pte &= ~PTE_W;
-                else return -1;
             }
             lcr3(V2P((uint)curproc->pgdir));
             return 0;
@@ -334,7 +333,6 @@ In xv6 makefile user programs are compiled , by default the entry point [first i
             for(int i=(int)addr;i<((int)addr+len*PGSIZE);i+=PGSIZE){
                 pte = walkpgdir(curproc->pgdir,(void*)i,0);
                 if((*pte & PTE_U) && (*pte&PTE_P))*pte |= PTE_W;
-                else return -1;
             }
             lcr3(V2P((uint)curproc->pgdir));
             return 0;
