@@ -391,7 +391,7 @@ int mprotect(void* addr,uint len){
   for(int i=(int)addr;i<((int)addr+len*PGSIZE);i+=PGSIZE){
     pte = walkpgdir(curproc->pgdir,(void*)i,0);
     if((*pte & PTE_U) && (*pte&PTE_P))*pte &= ~PTE_W;
-    else return -1;
+    //else return -1;
   }
   //reset cr3 to notify the hardware that the page table entry has changed
   //cr3 stores current physical address of the page directory
@@ -405,7 +405,7 @@ int munprotect(void* addr,uint len){
   for(int i=(int)addr;i<((int)addr+len*PGSIZE);i+=PGSIZE){
     pte = walkpgdir(curproc->pgdir,(void*)i,0);
     if((*pte & PTE_U) && (*pte&PTE_P))*pte |= PTE_W;
-    else return -1;
+    // else return -1;
   }
   //reset cr3 to notify the hardware that the page table entry has changed
   //cr3 stores current physical address of the page directory
