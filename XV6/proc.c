@@ -626,7 +626,7 @@ settickets(int tickets){
   struct proc *proc = myproc();
 
   acquire(&ptable.lock);
-    proc->tickets = tickets;
+  ptable.proc[proc-ptable.proc].tickets = tickets;
   release(&ptable.lock);
 
   return 0;
@@ -662,7 +662,8 @@ int clone (void(*fcn)(void*,void*),void *arg1 ,void *arg2 ,void* stack){
 
   //setting new process data
   newp->pgdir = currp->pgdir;  //have same process page table
-  newp->sz = currp->sz;        //have the same size        
+  newp->sz = currp->sz;        //have the same size
+  newp->tickets = currp->tickets;
   *newp->tf = *currp->tf;	      //have the same trapframe
   newp->parent = currp; 
   newp->tf->eax = 0 ;          //clearing eax to return 0 in the child
